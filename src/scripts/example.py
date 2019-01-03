@@ -1,18 +1,18 @@
-from ros_pythonic import Node, Topic
+from ros_pythonic import Node
 
 
 node = Node()
 
 
-@node.topic(Topic.sub, '/test_topic/sub', 'std_msgs.msg.String')
+@node.topic_sub('/test_topic/sub', 'std_msgs.msg.String')
 def sub_callback(msg):
     print('callback from sub_callback: {0}'.format(msg))
 
-@node.topic(Topic.pub, '/test_topic/pub', 'std_msgs.msg.String')
+@node.topic_pub('/test_topic/pub', 'std_msgs.msg.String')
 def pub_given_data(data):
     return data
 
-@node.topic(Topic.pub, '/test_topic/pub', 'std_msgs.msg.String')
+@node.topic_pub('/test_topic/pub', 'std_msgs.msg.String')
 def pub_data_intern():
     return 'intern random generated data'
 

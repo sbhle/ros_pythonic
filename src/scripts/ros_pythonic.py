@@ -1,44 +1,52 @@
 import uuid
-from enum import Enum
-
 import rospy
-
-
-class Topic(Enum):
-    sub = 1
-    pub = 2
+import functools
 
 
 class Node:
 
     def __init__(self):
-        self.topics = []
-        self.topic_subs = {}
+        self.topic_subs = []
 
-    def topic(self, mode, topic_g, msg_type, rate=10):
+    @staticmethod
+    def _import_from_str(import_str):
+        try:
+            from_part, imp_part = import_str.rsplit('.', 1)
+            mod = __import__(from_part, fromlist=[imp_part])
+            return getattr(mod, imp_part)
+        except ImportError:
+            print('Cant import given dtype!')
+            raise
+
+    def topic_sub(self, sub_topic, msg_type):
+        def wrapper(callback, *args):
+            imported_dtype = self._import_from_str(msg_type)
+            self.topic_subs.append((sub_topic,
+                                    imported_dtype,
+                                    callback))
+        return wrapper
+
+    def topic_pub(self, pub_topic, msg_type, rate=10, queue_size=10):
+        # two decorators to enable arg/no arg for pub
         def cb_decorator(callback, *args):
-            try:
-                from_part, imp_part = msg_type.rsplit('.', 1)
-                mod = __import__(from_part, fromlist=[imp_part])
-                imported_dtype = getattr(mod, imp_part)
-            except ImportError:
-                print('Cant import given dtype!')
-                raise
-
-            if mode is Topic.sub:
-                self.topic_subs[topic_g] = (topic_g, imported_dtype, callback)
-
+            imported_dtype = self._import_from_str(msg_type)
+            @functools.wraps(callback)
             def wrapper(*args, **kwargs):
                 cb_ret = callback(*args, **kwargs)
-                if mode is Topic.pub:
-                    pub = rospy.Publisher(topic_g, imported_dtype, queue_size=10)
-                    pub.publish(cb_ret)
-            self.topics.append((mode, msg_type, rate, wrapper, topic_g))
+                pub = rospy.Publisher(pub_topic,
+                                      imported_dtype,
+                                      queue_size=queue_size)
+                pub.publish(cb_ret)
             return wrapper    
         return cb_decorator    
-    
+
+    def main(self, rate=10):
+        def wrapper(callback):
+            self.main_runner = callback, rate
+        return wrapper
+
     def run(self, node_name=None):
-        if not node_name:  # needed to avoid variable referenced b4 assignment error
+        if not node_name:  
             node_name_init = 'node_' +  uuid.uuid4().hex.upper()[0:6]
         else:
             node_name_init = node_name
@@ -47,21 +55,18 @@ class Node:
         print('created node: {}'.format(node_name_init))
         rospy.init_node(node_name_init, anonymous=True)
 
-        for topic_ in self.topics:
-            if topic_[0] is Topic.sub:
-                sub_args = self.topic_subs[topic_[4]]
-                rospy.Subscriber(sub_args[0], sub_args[1], sub_args[2])
-                print('subscribed to: {}'.format(sub_args[0]))
+        for topic, dtype, cb in self.topic_subs:
+            rospy.Subscriber(topic, dtype, cb)
+            print('subscribed to: {}'.format(topic))
 
-        ros_rate = rospy.Rate(self.main_runner[1])
-        while not rospy.is_shutdown():
-            self.main_runner[0]()
-            ros_rate.sleep()
-
-        self.main_runner()
-        
-    def main(self, rate=10):
-        def wrapper(callback):
-            self.main_runner = callback, rate
-        return wrapper
+        try:
+            # only check main perodically if there is something to do
+            ros_rate = rospy.Rate(self.main_runner[1])
+            while not rospy.is_shutdown():
+                self.main_runner[0]()
+                ros_rate.sleep()
+        except AttributeError:    
+            if self.topic_subs:
+                # node only listens on topics - nothing else to do
+                rospy.spin()
 
