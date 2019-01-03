@@ -1,6 +1,10 @@
+from __future__ import division, absolute_import, print_function
+
 import uuid
 import rospy
 import functools
+
+__all__ = ['Node']
 
 
 class Node(object):
@@ -125,6 +129,9 @@ class Node(object):
         print('created node: {}'.format(node_name_init))
         rospy.init_node(node_name_init, anonymous=True)
 
+        # subscriptions have to be done here and not in the callback
+        # b/c otherwise ROS doesn't register the subscription w/o
+        # a additional call of the function (which executes the function)
         for topic, dtype, cb in self.topic_subs:
             rospy.Subscriber(topic, dtype, cb)
             print('subscribed to: {}'.format(topic))
