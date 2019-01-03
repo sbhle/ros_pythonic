@@ -48,7 +48,7 @@ class Node(object):
             callback of the function to call when message 
             arrives on suscribed topic
         """
-        def wrapper(callback, *args):
+        def wrapper(callback):
             imported_dtype = self._import_from_str(msg_type)
             self.topic_subs.append((sub_topic,
                                     imported_dtype,
@@ -75,7 +75,7 @@ class Node(object):
             callback of the function to call that is called
             to publish the data to the topic
         """
-        def cb_decorator(callback, *args):
+        def cb_decorator(callback):
             # two decorators to enable arg/no arg for pub
             imported_dtype = self._import_from_str(msg_type)
             @functools.wraps(callback)
