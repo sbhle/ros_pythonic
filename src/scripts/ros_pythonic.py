@@ -23,7 +23,6 @@ class Node(object):
         class
             imported class from the given string
         """
-
         try:
             from_part, imp_part = import_str.rsplit('.', 1)
             mod = __import__(from_part, fromlist=[imp_part])
@@ -49,7 +48,6 @@ class Node(object):
             callback of the function to call when message 
             arrives on suscribed topic
         """
-
         def wrapper(callback, *args):
             imported_dtype = self._import_from_str(msg_type)
             self.topic_subs.append((sub_topic,
